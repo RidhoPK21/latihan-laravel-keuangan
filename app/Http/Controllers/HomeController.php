@@ -9,5 +9,9 @@ class HomeController extends Controller
         return view('pages.app.home');
     }
 
-    
+    // BARU: Tambahkan method ini
+    public function transactionDetail()
+    {
+        return view('pages.app.transactions.detail');
+    }
 }
