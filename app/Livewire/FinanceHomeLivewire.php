@@ -2,13 +2,37 @@
 
 namespace App\Livewire;
 
-use App\Models\Transaction; // <--- PASTIKAN MENGGUNAKAN MODEL TRANSACTION
+use App\Models\Transaction;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class FinanceHomeLivewire extends Component
 {
+    use WithPagination;
+
+    // Kita tidak akan terlalu bergantung pada $auth ini lagi
     public $auth;
+
+    // Properti untuk Tambah Transaksi
+    public $addTransactionTitle;
+    public $addTransactionDescription;
+    public $addTransactionAmount;
+    public $addTransactionType = 'income';
+
+    // Properti untuk Edit Transaksi
+    public $editTransactionId;
+    public $editTransactionTitle;
+    public $editTransactionDescription;
+    public $editTransactionAmount;
+    public $editTransactionType;
+
+    // Properti untuk Hapus Transaksi
+    public $deleteTransactionId;
+    public $deleteTransactionTitle;
+    public $deleteTransactionDescription;
+    public $deleteTransactionAmount;
+    public $deleteTransactionConfirmTitle;
 
     public function mount()
     {
@@ -17,125 +41,139 @@ class FinanceHomeLivewire extends Component
 
     public function render()
     {
-        // Mengambil semua transaksi milik user yang sedang login
-        $transactions = Transaction::where('user_id', $this->auth->id)
-            ->orderBy('date', 'desc')
-            ->get();
+        // Ambil ID user yang aman, 0 jika belum login
+        $userId = auth()->id() ?? 0;
+
+        $transactions = Transaction::where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
 
         $data = [
-            'transactions' => $transactions,
+            'transactions' => $transactions
         ];
 
         return view('livewire.finance-home-livewire', $data);
     }
 
-    //
-    // Kebutuhan Utama 2: Tambah Data
-    // 
-    public $addTransactionType = '';
-    public $addTransactionAmount = '';
-    public $addTransactionDate = '';
-    public $addTransactionDescription = '';
-
+    /**
+     * Logika untuk Tambah Transaksi
+     */
     public function addTransaction()
     {
         $this->validate([
+            'addTransactionTitle' => 'required|string|max:255',
+            'addTransactionDescription' => 'required|string', // Dibuat required
+            'addTransactionAmount' => 'required|numeric',
             'addTransactionType' => 'required|in:income,expense',
-            'addTransactionAmount' => 'required|numeric|min:1',
-            'addTransactionDate' => 'required|date',
-            'addTransactionDescription' => 'required|string',
         ]);
 
+        // Ambil ID user langsung dari helper auth()
         Transaction::create([
-            'user_id' => $this->auth->id,
-            'type' => $this->addTransactionType,
-            'amount' => $this->addTransactionAmount,
-            'date' => $this->addTransactionDate,
+            'user_id' => auth()->id(), // <-- LEBIH AMAN
+            'title' => $this->addTransactionTitle,
             'description' => $this->addTransactionDescription,
+            'amount' => $this->addTransactionAmount,
+            'type' => $this->addTransactionType,
         ]);
 
-        // Reset form
-        $this->reset(['addTransactionType', 'addTransactionAmount', 'addTransactionDate', 'addTransactionDescription']);
-        // Tutup modal
+        $this->reset(['addTransactionTitle', 'addTransactionDescription', 'addTransactionAmount', 'addTransactionType']);
         $this->dispatch('closeModal', id: 'addTransactionModal');
     }
 
-    //
-    // Kebutuhan Utama 3: Ubah Data
-    // 
-    public $editTransactionId = '';
-    public $editTransactionType = '';
-    public $editTransactionAmount = '';
-    public $editTransactionDate = '';
-    public $editTransactionDescription = '';
-
+    /**
+     * Logika untuk Persiapan Edit Transaksi
+     */
     public function prepareEditTransaction($id)
     {
-        $transaction = Transaction::where('id', $id)->where('user_id', $this->auth->id)->first();
+        // Ambil ID user langsung dan tambahkan pengecekan
+        $transaction = Transaction::where('id', $id)->where('user_id', auth()->id())->first();
+        
+        // INI PENGECEKAN PENTING YANG MEMPERBAIKI ERROR
         if (!$transaction) {
             return;
         }
 
         $this->editTransactionId = $transaction->id;
-        $this->editTransactionType = $transaction->type;
-        $this->editTransactionAmount = $transaction->amount;
-        // Format tanggal agar sesuai dengan input type="date"
-        $this->editTransactionDate = $transaction->date->format('Y-m-d');
+        $this->editTransactionTitle = $transaction->title;
         $this->editTransactionDescription = $transaction->description;
+        $this->editTransactionAmount = $transaction->amount;
+        $this->editTransactionType = $transaction->type;
 
         $this->dispatch('showModal', id: 'editTransactionModal');
     }
 
+    /**
+     * Logika untuk Simpan Edit Transaksi
+     */
     public function editTransaction()
     {
         $this->validate([
+            'editTransactionTitle' => 'required|string|max:255',
+            'editTransactionDescription' => 'required|string', // Dibuat required
+            'editTransactionAmount' => 'required|numeric',
             'editTransactionType' => 'required|in:income,expense',
-            'editTransactionAmount' => 'required|numeric|min:1',
-            'editTransactionDate' => 'required|date',
-            'editTransactionDescription' => 'required|string',
         ]);
 
-        $transaction = Transaction::where('id', $this->editTransactionId)->where('user_id', $this->auth->id)->first();
+        $transaction = Transaction::where('id', $this->editTransactionId)->where('user_id', auth()->id())->first();
+        
         if (!$transaction) {
+            $this->addError('editTransactionTitle', 'Data transaksi tidak tersedia.');
             return;
         }
 
-        $transaction->type = $this->editTransactionType;
-        $transaction->amount = $this->editTransactionAmount;
-        $transaction->date = $this->editTransactionDate;
+        $transaction->title = $this->editTransactionTitle;
         $transaction->description = $this->editTransactionDescription;
+        $transaction->amount = $this->editTransactionAmount;
+        $transaction->type = $this->editTransactionType;
         $transaction->save();
 
-        $this->reset(['editTransactionId', 'editTransactionType', 'editTransactionAmount', 'editTransactionDate', 'editTransactionDescription']);
+        $this->reset(['editTransactionId', 'editTransactionTitle', 'editTransactionDescription', 'editTransactionAmount', 'editTransactionType']);
         $this->dispatch('closeModal', id: 'editTransactionModal');
     }
 
-
-    //
-    // Kebutuhan Utama 4: Hapus Data
-    // 
-    public $deleteTransactionId = '';
-    public $deleteTransactionAmount = '';
-    public $deleteTransactionDescription = '';
-
+    /**
+     * Logika untuk Persiapan Hapus Transaksi
+     */
     public function prepareDeleteTransaction($id)
     {
-        $transaction = Transaction::where('id', $id)->where('user_id', $this->auth->id)->first();
+        // Ambil ID user langsung dan tambahkan pengecekan
+        $transaction = Transaction::where('id', $id)->where('user_id', auth()->id())->first();
+        
+        // INI PENGECEKAN PENTING YANG MEMPERBAIKI ERROR
         if (!$transaction) {
-            return;
+            return; // <-- Ini akan mencegah error "read property id on null"
         }
 
         $this->deleteTransactionId = $transaction->id;
-        $this->deleteTransactionAmount = $transaction->amount;
+        $this->deleteTransactionTitle = $transaction->title;
         $this->deleteTransactionDescription = $transaction->description;
+        $this->deleteTransactionAmount = $transaction->amount;
+
         $this->dispatch('showModal', id: 'deleteTransactionModal');
     }
 
+    /**
+     * Logika untuk Hapus Transaksi
+     */
     public function deleteTransaction()
     {
-        Transaction::destroy($this->deleteTransactionId);
+        if ($this->deleteTransactionConfirmTitle != $this->deleteTransactionTitle) {
+            $this->addError('deleteTransactionConfirmTitle', 'Judul konfirmasi tidak sesuai.');
+            return;
+        }
 
-        $this->reset(['deleteTransactionId', 'deleteTransactionAmount', 'deleteTransactionDescription']);
+        // Ambil ID user langsung dan tambahkan pengecekan
+        $transaction = Transaction::where('id', $this->deleteTransactionId)->where('user_id', auth()->id())->first();
+
+        if ($transaction && $transaction->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($transaction->cover)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($transaction->cover);
+        }
+
+        if ($transaction) {
+            $transaction->delete(); // Lebih aman daripada destroy()
+        }
+
+        $this->reset(['deleteTransactionId', 'deleteTransactionTitle', 'deleteTransactionDescription', 'deleteTransactionAmount', 'deleteTransactionConfirmTitle']);
         $this->dispatch('closeModal', id: 'deleteTransactionModal');
     }
 }

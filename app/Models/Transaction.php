@@ -2,22 +2,24 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-    protected $table = 'transactions';
+    use HasFactory;
 
-    // Isi fillable untuk mass assignment
-    protected $fillable = ['user_id', 'type', 'amount', 'date', 'description', 'cover'];
-
-    // Casts untuk memastikan tipe data benar
-    protected $casts = [
-        'amount' => 'integer',
-        'date' => 'date',
+    /**
+     * Bidang (field) yang boleh diisi secara massal.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'user_id',
+        'title',
+        'description',
+        'amount',
+        'type',
+        'cover', // <-- Kita tambahkan juga 'cover' untuk nanti
     ];
 }
-
-
-
-
