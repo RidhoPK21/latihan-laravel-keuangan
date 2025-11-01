@@ -1,4 +1,4 @@
-<form wire:submit.prevent="editCoverTransaction">
+<form wire:submit.prevent="saveCover">
     <div class="modal fade" tabindex="-1" id="editCoverTransactionModal" wire:ignore.self>
         <div class="modal-dialog">
             <div class="modal-content">
@@ -9,6 +9,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Pilih Gambar Bukti</label>
+                        {{-- Nama properti ini sudah benar, kita akan ikuti nama ini --}}
                         <input type="file" class="form-control" wire:model="editCoverFile">
                         @error('editCoverFile')
                             <span class="text-danger">{{ $message }}</span>

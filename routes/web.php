@@ -20,6 +20,5 @@ Route::group(['prefix' => 'app', 'middleware' => 'check.auth'], function () {
 });
 
 Route::get('/', function () {
-    // MODIFIKASI: Arahkan root ke app.home
     return redirect()->route('app.home');
 });

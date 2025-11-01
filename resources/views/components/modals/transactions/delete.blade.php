@@ -10,10 +10,23 @@
                     <div class="alert alert-danger">
                         Apakah kamu yakin ingin menghapus transaksi ini?
                         <br>
+                        {{-- Menampilkan judul, deskripsi, dan jumlah --}}
+                        <strong>Judul: "{{ $deleteTransactionTitle }}"</strong>
+                        <br>
                         <strong>Deskripsi: "{{ $deleteTransactionDescription }}"</strong>
                         <br>
                         <strong>Jumlah: Rp {{ number_format($deleteTransactionAmount) }}</strong>
                     </div>
+
+                    {{-- INI BAGIAN YANG HILANG --}}
+                    <div class="mb-3">
+                        <label class="form-label">Ketik ulang judul ("{{ $deleteTransactionTitle }}") untuk konfirmasi:</label>
+                        <input type="text" class="form-control" wire:model="deleteTransactionConfirmTitle">
+                        @error('deleteTransactionConfirmTitle')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>

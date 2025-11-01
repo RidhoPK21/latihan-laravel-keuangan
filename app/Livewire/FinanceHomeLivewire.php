@@ -19,6 +19,7 @@ class FinanceHomeLivewire extends Component
     public $addTransactionDescription;
     public $addTransactionAmount;
     public $addTransactionType = 'income';
+    public $addTransactionDate; // <--- 1. TAMBAHKAN INI
 
     // Properti untuk Edit Transaksi
     public $editTransactionId;
@@ -26,6 +27,7 @@ class FinanceHomeLivewire extends Component
     public $editTransactionDescription;
     public $editTransactionAmount;
     public $editTransactionType;
+    public $editTransactionDate; // <--- TAMBAHKAN INI
 
     // Properti untuk Hapus Transaksi
     public $deleteTransactionId;
@@ -65,6 +67,7 @@ class FinanceHomeLivewire extends Component
             'addTransactionDescription' => 'required|string', // Dibuat required
             'addTransactionAmount' => 'required|numeric',
             'addTransactionType' => 'required|in:income,expense',
+            'addTransactionDate' => 'required|date', // <--- 2. TAMBAHKAN INI
         ]);
 
         // Ambil ID user langsung dari helper auth()
@@ -74,9 +77,10 @@ class FinanceHomeLivewire extends Component
             'description' => $this->addTransactionDescription,
             'amount' => $this->addTransactionAmount,
             'type' => $this->addTransactionType,
+            'date' => $this->addTransactionDate, // <--- 3. TAMBAHKAN INI (Asumsi Anda ingin menyimpan tanggal ini)
         ]);
 
-        $this->reset(['addTransactionTitle', 'addTransactionDescription', 'addTransactionAmount', 'addTransactionType']);
+        $this->reset(['addTransactionTitle', 'addTransactionDescription', 'addTransactionAmount', 'addTransactionType', 'addTransactionDate']);
         $this->dispatch('closeModal', id: 'addTransactionModal');
     }
 
@@ -85,10 +89,8 @@ class FinanceHomeLivewire extends Component
      */
     public function prepareEditTransaction($id)
     {
-        // Ambil ID user langsung dan tambahkan pengecekan
         $transaction = Transaction::where('id', $id)->where('user_id', auth()->id())->first();
         
-        // INI PENGECEKAN PENTING YANG MEMPERBAIKI ERROR
         if (!$transaction) {
             return;
         }
@@ -98,6 +100,9 @@ class FinanceHomeLivewire extends Component
         $this->editTransactionDescription = $transaction->description;
         $this->editTransactionAmount = $transaction->amount;
         $this->editTransactionType = $transaction->type;
+        
+        // TAMBAHKAN INI (Gunakan format Y-m-d untuk input HTML)
+        $this->editTransactionDate = $transaction->date->format('Y-m-d'); 
 
         $this->dispatch('showModal', id: 'editTransactionModal');
     }
@@ -105,13 +110,14 @@ class FinanceHomeLivewire extends Component
     /**
      * Logika untuk Simpan Edit Transaksi
      */
-    public function editTransaction()
+ public function editTransaction()
     {
         $this->validate([
             'editTransactionTitle' => 'required|string|max:255',
-            'editTransactionDescription' => 'required|string', // Dibuat required
+            'editTransactionDescription' => 'required|string',
             'editTransactionAmount' => 'required|numeric',
             'editTransactionType' => 'required|in:income,expense',
+            'editTransactionDate' => 'required|date', // <--- TAMBAHKAN VALIDASI INI
         ]);
 
         $transaction = Transaction::where('id', $this->editTransactionId)->where('user_id', auth()->id())->first();
@@ -125,9 +131,11 @@ class FinanceHomeLivewire extends Component
         $transaction->description = $this->editTransactionDescription;
         $transaction->amount = $this->editTransactionAmount;
         $transaction->type = $this->editTransactionType;
+        $transaction->date = $this->editTransactionDate; // <--- TAMBAHKAN LOGIKA SIMPAN INI
         $transaction->save();
 
-        $this->reset(['editTransactionId', 'editTransactionTitle', 'editTransactionDescription', 'editTransactionAmount', 'editTransactionType']);
+        // TAMBAHKAN 'editTransactionDate' DI DALAM RESET
+        $this->reset(['editTransactionId', 'editTransactionTitle', 'editTransactionDescription', 'editTransactionAmount', 'editTransactionType', 'editTransactionDate']);
         $this->dispatch('closeModal', id: 'editTransactionModal');
     }
 

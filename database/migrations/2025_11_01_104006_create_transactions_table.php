@@ -27,6 +27,7 @@ return new class extends Migration
             // Tanggal Transaksi
             $table->date('date');
 
+            $table->string('title');
             // Keterangan
             $table->text('description');
 

@@ -15,11 +15,23 @@ class Transaction extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',
-        'title',
-        'description',
-        'amount',
-        'type',
-        'cover', // <-- Kita tambahkan juga 'cover' untuk nanti
+       'user_id',
+       'title',
+       'description',
+       'amount',
+       'type',
+       'cover', 
+       'date', // <-- TAMBAHKAN BARIS INI
+   ];
+   protected $casts = [
+        'date' => 'datetime',
     ];
+
+    /**
+     * Relasi ke User
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
+    }
 }

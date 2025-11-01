@@ -9,7 +9,8 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Tipe Transaksi</label>
-                        <select class_exists"form-select" wire:model="addTransactionType">
+                        {{-- PERBAIKAN: "class_exists" diubah menjadi "class" --}}
+                        <select class="form-select" wire:model="addTransactionType">
                             <option value="">Pilih Tipe</option>
                             <option value="income">Pemasukan (Income)</option>
                             <option value="expense">Pengeluaran (Expense)</option>
@@ -26,6 +27,17 @@
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
                     </div>
+
+                    {{-- BARU: Input untuk 'addTransactionTitle' ditambahkan di sini --}}
+                    <div class="mb-3">
+                        <label class="form-label">Judul</label>
+                        <input type="text" class="form-control" wire:model="addTransactionTitle"
+                            placeholder="Contoh: Gaji Bulanan">
+                        @error('addTransactionTitle')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Tanggal</label>
                         <input type="date" class="form-control" wire:model="addTransactionDate">
