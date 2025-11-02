@@ -22,7 +22,7 @@ class FinanceHomeLivewire extends Component
     public $addTransactionDescription;
     public $addTransactionAmount;
     public $addTransactionType = 'income';
-    public $addTransactionDate; // <--- 1. TAMBAHKAN INI
+    public $addTransactionDate;
 
     // Properti untuk Edit Transaksi
     public $editTransactionId;
@@ -30,14 +30,15 @@ class FinanceHomeLivewire extends Component
     public $editTransactionDescription;
     public $editTransactionAmount;
     public $editTransactionType;
-    public $editTransactionDate; // <--- TAMBAHKAN INI
+    public $editTransactionDate;
 
-    // Properti untuk Hapus Transaksi
+    // Properti untuk Hapus Transaksi (Disederhanakan)
     public $deleteTransactionId;
     public $deleteTransactionTitle;
-    public $deleteTransactionDescription;
-    public $deleteTransactionAmount;
-    public $deleteTransactionConfirmTitle;
+    public $deleteTransactionDescription; // Hanya untuk tampilan
+    public $deleteTransactionAmount; // Hanya untuk tampilan
+    
+    // Properti Konfirmasi Dihapus, digantikan oleh SweetAlert2 Konfirmasi
 
     public function updatedSearch()
     {
@@ -62,12 +63,11 @@ class FinanceHomeLivewire extends Component
         
         // 1. Logika Pencarian (Case-Insensitive)
         if (!empty($this->search)) {
-            // Konversi input pencarian menjadi huruf kecil sekali di awal
             $searchTerm = strtolower($this->search); 
             
             $query->where(function ($q) use ($searchTerm) {
                 // Menggunakan LOWER() untuk memaksa kolom database menjadi huruf kecil 
-                // sebelum membandingkannya dengan searchTerm.
+                // sebelum membandingkannya dengan searchTerm (Case-Insensitive).
                 $q->whereRaw('LOWER(title) LIKE ?', ['%' . $searchTerm . '%'])
                   ->orWhereRaw('LOWER(description) LIKE ?', ['%' . $searchTerm . '%']);
             });
@@ -97,24 +97,32 @@ class FinanceHomeLivewire extends Component
     {
         $this->validate([
             'addTransactionTitle' => 'required|string|max:255',
-            'addTransactionDescription' => 'required|string', // Dibuat required
+            'addTransactionDescription' => 'required|string', 
             'addTransactionAmount' => 'required|numeric',
             'addTransactionType' => 'required|in:income,expense',
-            'addTransactionDate' => 'required|date', // <--- 2. TAMBAHKAN INI
+            'addTransactionDate' => 'required|date',
         ]);
 
-        // Ambil ID user langsung dari helper auth()
-        Transaction::create([
-            'user_id' => auth()->id(), // <-- LEBIH AMAN
-            'title' => $this->addTransactionTitle,
-            'description' => $this->addTransactionDescription,
-            'amount' => $this->addTransactionAmount,
-            'type' => $this->addTransactionType,
-            'date' => $this->addTransactionDate, // <--- 3. TAMBAHKAN INI (Asumsi Anda ingin menyimpan tanggal ini)
-        ]);
+        try {
+            Transaction::create([
+                'user_id' => auth()->id(), 
+                'title' => $this->addTransactionTitle,
+                'description' => $this->addTransactionDescription,
+                'amount' => $this->addTransactionAmount,
+                'type' => $this->addTransactionType,
+                'date' => $this->addTransactionDate, 
+            ]);
 
-        $this->reset(['addTransactionTitle', 'addTransactionDescription', 'addTransactionAmount', 'addTransactionType', 'addTransactionDate']);
-        $this->dispatch('closeModal', id: 'addTransactionModal');
+            $this->reset(['addTransactionTitle', 'addTransactionDescription', 'addTransactionAmount', 'addTransactionType', 'addTransactionDate']);
+            $this->dispatch('closeModal', id: 'addTransactionModal');
+            
+            // NOTIFIKASI SUKSES (SweetAlert2 Toast)
+            $this->dispatch('showAlert', ['icon' => 'success', 'message' => 'Transaksi berhasil ditambahkan.']);
+
+        } catch (\Exception $e) {
+            // NOTIFIKASI GAGAL
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Gagal menambahkan transaksi.']);
+        }
     }
 
     /**
@@ -125,6 +133,7 @@ class FinanceHomeLivewire extends Component
         $transaction = Transaction::where('id', $id)->where('user_id', auth()->id())->first();
         
         if (!$transaction) {
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Data tidak ditemukan untuk diubah.']);
             return;
         }
 
@@ -133,8 +142,6 @@ class FinanceHomeLivewire extends Component
         $this->editTransactionDescription = $transaction->description;
         $this->editTransactionAmount = $transaction->amount;
         $this->editTransactionType = $transaction->type;
-        
-        // TAMBAHKAN INI (Gunakan format Y-m-d untuk input HTML)
         $this->editTransactionDate = $transaction->date->format('Y-m-d'); 
 
         $this->dispatch('showModal', id: 'editTransactionModal');
@@ -143,78 +150,96 @@ class FinanceHomeLivewire extends Component
     /**
      * Logika untuk Simpan Edit Transaksi
      */
- public function editTransaction()
+    public function editTransaction()
     {
         $this->validate([
             'editTransactionTitle' => 'required|string|max:255',
             'editTransactionDescription' => 'required|string',
             'editTransactionAmount' => 'required|numeric',
             'editTransactionType' => 'required|in:income,expense',
-            'editTransactionDate' => 'required|date', // <--- TAMBAHKAN VALIDASI INI
+            'editTransactionDate' => 'required|date',
         ]);
 
         $transaction = Transaction::where('id', $this->editTransactionId)->where('user_id', auth()->id())->first();
         
         if (!$transaction) {
-            $this->addError('editTransactionTitle', 'Data transaksi tidak tersedia.');
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Data transaksi tidak tersedia.']);
             return;
         }
 
-        $transaction->title = $this->editTransactionTitle;
-        $transaction->description = $this->editTransactionDescription;
-        $transaction->amount = $this->editTransactionAmount;
-        $transaction->type = $this->editTransactionType;
-        $transaction->date = $this->editTransactionDate; // <--- TAMBAHKAN LOGIKA SIMPAN INI
-        $transaction->save();
+        try {
+            $transaction->title = $this->editTransactionTitle;
+            $transaction->description = $this->editTransactionDescription;
+            $transaction->amount = $this->editTransactionAmount;
+            $transaction->type = $this->editTransactionType;
+            $transaction->date = $this->editTransactionDate;
+            $transaction->save();
 
-        // TAMBAHKAN 'editTransactionDate' DI DALAM RESET
-        $this->reset(['editTransactionId', 'editTransactionTitle', 'editTransactionDescription', 'editTransactionAmount', 'editTransactionType', 'editTransactionDate']);
-        $this->dispatch('closeModal', id: 'editTransactionModal');
+            $this->reset(['editTransactionId', 'editTransactionTitle', 'editTransactionDescription', 'editTransactionAmount', 'editTransactionType', 'editTransactionDate']);
+            $this->dispatch('closeModal', id: 'editTransactionModal');
+            
+            // NOTIFIKASI SUKSES
+            $this->dispatch('showAlert', ['icon' => 'success', 'message' => 'Transaksi berhasil diubah.']);
+
+        } catch (\Exception $e) {
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Gagal mengubah transaksi.']);
+        }
     }
 
+    // ===============================================
+    // LOGIKA DELETE DENGAN SWEETALERT2
+    // ===============================================
+
     /**
-     * Logika untuk Persiapan Hapus Transaksi
+     * Logika untuk Persiapan Hapus Transaksi (Memicu SweetAlert Konfirmasi)
      */
     public function prepareDeleteTransaction($id)
     {
-        // Ambil ID user langsung dan tambahkan pengecekan
         $transaction = Transaction::where('id', $id)->where('user_id', auth()->id())->first();
         
-        // INI PENGECEKAN PENTING YANG MEMPERBAIKI ERROR
         if (!$transaction) {
-            return; // <-- Ini akan mencegah error "read property id on null"
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Data tidak ditemukan untuk dihapus.']);
+            return;
         }
 
         $this->deleteTransactionId = $transaction->id;
         $this->deleteTransactionTitle = $transaction->title;
-        $this->deleteTransactionDescription = $transaction->description;
-        $this->deleteTransactionAmount = $transaction->amount;
 
-        $this->dispatch('showModal', id: 'deleteTransactionModal');
+        // TAMPILKAN KONFIRMASI SweetAlert2
+        $this->dispatch('showConfirm', [
+            'title' => 'Yakin Hapus?',
+            'text' => "Anda akan menghapus transaksi: " . $this->deleteTransactionTitle . ". Tindakan ini tidak dapat dibatalkan.",
+            'icon' => 'warning',
+            'confirmButtonText' => 'Ya, Hapus Saja!',
+            // Method yang akan dipicu jika pengguna mengklik "Ya, Hapus Saja!"
+            'method' => 'executeDeleteTransaction' 
+        ]);
     }
 
     /**
-     * Logika untuk Hapus Transaksi
+     * Logika Hapus yang sebenarnya (Dipicu oleh SweetAlert Konfirmasi)
      */
-    public function deleteTransaction()
+    public function executeDeleteTransaction()
     {
-        if ($this->deleteTransactionConfirmTitle != $this->deleteTransactionTitle) {
-            $this->addError('deleteTransactionConfirmTitle', 'Judul konfirmasi tidak sesuai.');
-            return;
+        try {
+            $transaction = Transaction::where('id', $this->deleteTransactionId)->where('user_id', auth()->id())->first();
+
+            if ($transaction) {
+                // Hapus cover jika ada
+                if ($transaction->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($transaction->cover)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($transaction->cover);
+                }
+                
+                $transaction->delete();
+                $this->dispatch('showAlert', ['icon' => 'success', 'message' => 'Transaksi berhasil dihapus.']);
+            } else {
+                $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Gagal menghapus. Transaksi tidak ditemukan.']);
+            }
+
+            $this->reset(['deleteTransactionId', 'deleteTransactionTitle', 'deleteTransactionDescription', 'deleteTransactionAmount']);
+
+        } catch (\Exception $e) {
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Terjadi kesalahan saat menghapus data.']);
         }
-
-        // Ambil ID user langsung dan tambahkan pengecekan
-        $transaction = Transaction::where('id', $this->deleteTransactionId)->where('user_id', auth()->id())->first();
-
-        if ($transaction && $transaction->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($transaction->cover)) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($transaction->cover);
-        }
-
-        if ($transaction) {
-            $transaction->delete(); // Lebih aman daripada destroy()
-        }
-
-        $this->reset(['deleteTransactionId', 'deleteTransactionTitle', 'deleteTransactionDescription', 'deleteTransactionAmount', 'deleteTransactionConfirmTitle']);
-        $this->dispatch('closeModal', id: 'deleteTransactionModal');
     }
 }

@@ -16,7 +16,7 @@ class TransactionDetailLivewire extends Component
     public $auth;
 
     // Properti untuk Ubah Cover (Nama disamakan dengan Blade)
-    public $editCoverFile; // <-- PERUBAHAN NAMA PROPERTI
+    public $editCoverFile;
 
     public function mount()
     {
@@ -39,33 +39,44 @@ class TransactionDetailLivewire extends Component
     /**
      * Logika untuk Simpan Cover Transaksi
      */
-    public function saveCover() // <-- PERUBAHAN NAMA METHOD
+    public function saveCover()
     {
         $this->validate([
-            'editCoverFile' => 'required|image|max:2048', // <-- PERUBAHAN NAMA PROPERTI
+            'editCoverFile' => 'required|image|max:2048', // Max 2MB
         ]);
 
-        if ($this->editCoverFile) { // <-- PERUBAHAN NAMA PROPERTI
-            // Hapus cover lama jika ada
-            if ($this->transaction->cover && Storage::disk('public')->exists($this->transaction->cover)) {
-                Storage::disk('public')->delete($this->transaction->cover);
+        // Menggunakan try-catch untuk penanganan error yang lebih baik
+        try {
+            if ($this->editCoverFile) {
+                // Hapus cover lama jika ada
+                if ($this->transaction->cover && Storage::disk('public')->exists($this->transaction->cover)) {
+                    Storage::disk('public')->delete($this->transaction->cover);
+                }
+
+                // Buat nama file baru dan simpan
+                $userId = $this->auth->id;
+                $dateNumber = now()->format('YmdHis');
+                $extension = $this->editCoverFile->getClientOriginalExtension();
+                $filename = $userId . '-' . $dateNumber . '.' . $extension;
+                
+                // Simpan file ke storage/app/public/covers
+                $path = $this->editCoverFile->storeAs('covers', $filename, 'public');
+
+                // Simpan path baru ke database
+                $this->transaction->cover = $path;
+                $this->transaction->save();
             }
 
-            // Buat nama file baru dan simpan
-            $userId = $this->auth->id;
-            $dateNumber = now()->format('YmdHis');
-            $extension = $this->editCoverFile->getClientOriginalExtension(); // <-- PERUBAHAN NAMA PROPERTI
-            $filename = $userId . '-' . $dateNumber . '.' . $extension;
+            $this->reset(['editCoverFile']);
+            $this->dispatch('closeModal', id: 'editCoverTransactionModal');
             
-            // Simpan file ke storage/app/public/covers
-            $path = $this->editCoverFile->storeAs('covers', $filename, 'public'); // <-- PERUBAHAN NAMA PROPERTI
+            // NOTIFIKASI SUKSES (SweetAlert2 Toast)
+            $this->dispatch('showAlert', ['icon' => 'success', 'message' => 'Bukti transaksi berhasil diubah.']);
 
-            // Simpan path baru ke database
-            $this->transaction->cover = $path;
-            $this->transaction->save();
+        } catch (\Exception $e) {
+            // NOTIFIKASI GAGAL jika ada masalah database atau file system
+            $this->dispatch('showAlert', ['icon' => 'error', 'message' => 'Gagal mengubah bukti transaksi: ' . $e->getMessage()]);
+            // Catatan: Di produksi, jangan tampilkan $e->getMessage()
         }
-
-        $this->reset(['editCoverFile']); // <-- PERUBAHAN NAMA PROPERTI
-        $this->dispatch('closeModal', id: 'editCoverTransactionModal');
     }
 }
