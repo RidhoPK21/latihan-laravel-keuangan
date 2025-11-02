@@ -48,6 +48,8 @@
         });
     </script>
     @livewireScripts
+
+    
 </body>
 
 </html>

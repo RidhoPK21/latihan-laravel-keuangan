@@ -13,6 +13,9 @@ class FinanceHomeLivewire extends Component
 
     // Kita tidak akan terlalu bergantung pada $auth ini lagi
     public $auth;
+    public $search = '';
+    // 'all', 'income', atau 'expense'
+    public $filterType = 'all';
 
     // Properti untuk Tambah Transaksi
     public $addTransactionTitle;
@@ -36,6 +39,16 @@ class FinanceHomeLivewire extends Component
     public $deleteTransactionAmount;
     public $deleteTransactionConfirmTitle;
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterType()
+    {
+        $this->resetPage();
+    }
+
     public function mount()
     {
         $this->auth = Auth::user();
@@ -43,11 +56,31 @@ class FinanceHomeLivewire extends Component
 
     public function render()
     {
-        // Ambil ID user yang aman, 0 jika belum login
         $userId = auth()->id() ?? 0;
+        
+        $query = Transaction::where('user_id', $userId);
+        
+        // 1. Logika Pencarian (Case-Insensitive)
+        if (!empty($this->search)) {
+            // Konversi input pencarian menjadi huruf kecil sekali di awal
+            $searchTerm = strtolower($this->search); 
+            
+            $query->where(function ($q) use ($searchTerm) {
+                // Menggunakan LOWER() untuk memaksa kolom database menjadi huruf kecil 
+                // sebelum membandingkannya dengan searchTerm.
+                $q->whereRaw('LOWER(title) LIKE ?', ['%' . $searchTerm . '%'])
+                  ->orWhereRaw('LOWER(description) LIKE ?', ['%' . $searchTerm . '%']);
+            });
+        }
 
-        $transactions = Transaction::where('user_id', $userId)
-            ->orderBy('created_at', 'desc')
+        // 2. Logika Filter Tipe Transaksi
+        if ($this->filterType !== 'all') {
+            $query->where('type', $this->filterType);
+        }
+
+        // 3. Ambil data dengan Pagination (20 data per halaman)
+        $transactions = $query
+            ->orderBy('date', 'desc') 
             ->paginate(20);
 
         $data = [
